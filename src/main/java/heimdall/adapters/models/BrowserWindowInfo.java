@@ -1,5 +1,6 @@
 package heimdall.adapters.models;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 import common.shared.inter.IWindowInfo;
@@ -8,11 +9,13 @@ public class BrowserWindowInfo implements IWindowInfo {
   private String browserName;
   private String tabTitle;
   private String tabURL;
+  private LocalDateTime timestamp;
 
-  public BrowserWindowInfo(String browserName, String tabTitle, String tabURL) {
+  public BrowserWindowInfo(String browserName, String tabTitle, String tabURL, LocalDateTime timestamp) {
     this.browserName = browserName;
     this.tabTitle = tabTitle;
     this.tabURL = tabURL;
+    this.timestamp = timestamp;
   }
 
   @Override
@@ -43,12 +46,17 @@ public class BrowserWindowInfo implements IWindowInfo {
   }
 
   @Override
-  public String getAdditionalInfo() {
-    return "URL: " + tabURL;
+  public String getUrl() {
+    return tabURL;
+  }
+
+  @Override
+  public LocalDateTime getTimestamp() {
+    return timestamp;
   }
 
   @Override
   public String toString() {
-    return "Browser: " + browserName + ", Title: " + tabTitle + ", URL: " + tabURL;
+    return "Browser: " + browserName + ", Title: " + tabTitle + ", URL: " + tabURL + ", Timestamp: " + timestamp;
   }
 }

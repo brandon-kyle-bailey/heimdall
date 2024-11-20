@@ -1,6 +1,7 @@
 package heimdall.handlers;
 
 import java.sql.SQLException;
+import java.util.List;
 
 import heimdall.dtos.RegisterUserDto;
 import heimdall.repositories.UserPersistenceRepository;
@@ -17,9 +18,9 @@ public class RegisterUserEventHandler {
     System.out.println("RegisterUserEventHandler.handle invoked: %s".formatted(event.toString()));
     UserModel user = new UserModel(0, event.getUserId(), event.getAccountId());
     try {
-      UserModel foundUser = this.repository.findUsersByAccountIdAndUserId(event.getAccountId(), event.getUserId())
-          .get(0);
-      if (foundUser != null) {
+      List<UserModel> models = this.repository.findUsersByAccountIdAndUserId(event.getAccountId(), event.getUserId());
+      UserModel foundModel = models.isEmpty() ? null : models.get(0);
+      if (foundModel != null) {
         System.out.println("User already exists.");
         return null;
       }

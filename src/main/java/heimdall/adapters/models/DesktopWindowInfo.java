@@ -1,5 +1,6 @@
 package heimdall.adapters.models;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 import common.shared.inter.IWindowInfo;
@@ -7,10 +8,12 @@ import common.shared.inter.IWindowInfo;
 public class DesktopWindowInfo implements IWindowInfo {
   private String applicationName;
   private String windowTitle;
+  private LocalDateTime timestamp;
 
-  public DesktopWindowInfo(String applicationName, String windowTitle) {
+  public DesktopWindowInfo(String applicationName, String windowTitle, LocalDateTime timestamp) {
     this.applicationName = applicationName;
     this.windowTitle = windowTitle;
+    this.timestamp = timestamp;
   }
 
   @Override
@@ -40,12 +43,17 @@ public class DesktopWindowInfo implements IWindowInfo {
   }
 
   @Override
-  public String getAdditionalInfo() {
-    return "No additional info for desktop application.";
+  public String getUrl() {
+    return windowTitle;
+  }
+
+  @Override
+  public LocalDateTime getTimestamp() {
+    return timestamp;
   }
 
   @Override
   public String toString() {
-    return "Application: " + applicationName + ", Window Title: " + windowTitle;
+    return "Application: " + applicationName + ", Window Title: " + windowTitle + ", Timestamp: " + timestamp;
   }
 }

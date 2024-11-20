@@ -1,15 +1,24 @@
 package heimdall.adapters;
 
 import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.util.Arrays;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.time.LocalDateTime;
 
+import common.shared.enumerator.EMessageKey;
 import common.shared.inter.IWindowInfo;
 import heimdall.adapters.models.BrowserWindowInfo;
 import heimdall.adapters.models.DesktopWindowInfo;
+import heimdall.dtos.CreateApplicationDto;
+import heimdall.dtos.CreateActivityDto;
 
 public class WindowAdapter {
+
+  EventbusAdapter eventBus;
+
+  public WindowAdapter(EventbusAdapter eventBus) {
+    this.eventBus = eventBus;
+  }
 
   // AppleScript to open the Accessibility Preferences pane
   private static void openAccessibilityPreferences() {
@@ -86,27 +95,22 @@ public class WindowAdapter {
 
       String[] parts = output.split("<BREAK>");
 
-      // System.out.println(Arrays.toString(parts));
       if (output.startsWith("Browser")) {
         String browserName = parts[0].split(": ")[1];
         String tabTitle = parts[1].split(": ")[1];
         String tabURL = parts[2].split(": ")[1];
-        return new BrowserWindowInfo(browserName, tabTitle, tabURL);
+        return new BrowserWindowInfo(browserName, tabTitle, tabURL, LocalDateTime.now());
       } else if (output.startsWith("Application")) {
         String applicationName = parts[0].split(": ")[1];
         String tabTitle = parts[1].split(": ")[1];
-        // System.out.println(Arrays.toString(parts));
-        return new DesktopWindowInfo(applicationName, tabTitle); // Use
+        return new DesktopWindowInfo(applicationName, tabTitle, LocalDateTime.now());
       }
-
     } catch (IOException e) {
       e.printStackTrace();
     }
     return null;
   }
 
-  // Check if the app has accessibility permissions (simple test via System
-  // Events)
   private static boolean hasAccessibilityPermissions() {
     try {
       String script = "tell application \"System Events\" to return (exists (process 1))"; // Simple check for
@@ -117,13 +121,13 @@ public class WindowAdapter {
       String line;
       while ((line = reader.readLine()) != null) {
         if ("true".equals(line.trim())) {
-          return true; // Accessibility permissions are enabled
+          return true;
         }
       }
     } catch (Exception e) {
       e.printStackTrace();
     }
-    return false; // Accessibility permissions are not enabled or something went wrong
+    return false;
   }
 
   public IWindowInfo getFocusedWindow() {
@@ -135,7 +139,6 @@ public class WindowAdapter {
   }
 
   public void run() {
-    // Check if the app has accessibility permissions
     if (!hasAccessibilityPermissions()) {
       WindowAdapter.openAccessibilityPreferences();
       return;
@@ -146,16 +149,27 @@ public class WindowAdapter {
       IWindowInfo currentFocusedWindow = WindowAdapter.getActiveWindow(); // Get the current focused window
 
       if (currentFocusedWindow != null && !currentFocusedWindow.equals(lastFocusedWindow)) {
-        // Log only if the focused window has changed
         System.out.println("Focused window changed: " + currentFocusedWindow);
-        // Update last focused window
+        this.eventBus.publish(EMessageKey.CREATE_APPLICATION.toString(),
+            new CreateApplicationDto(currentFocusedWindow.getApplicationName()));
+        if (lastFocusedWindow != null) {
+          this.eventBus.publish(EMessageKey.CREATE_ACTIVITY.toString(),
+              new CreateActivityDto(
+                  lastFocusedWindow.getApplicationName(),
+                  lastFocusedWindow.getWindowTitle(),
+                  lastFocusedWindow.getUrl(),
+                  LocalDateTime.now(),
+                  LocalDateTime.now()));
+        }
+        this.eventBus.publish(EMessageKey.CREATE_ACTIVITY.toString(),
+            new CreateActivityDto(
+                currentFocusedWindow.getApplicationName(),
+                currentFocusedWindow.getWindowTitle(),
+                currentFocusedWindow.getUrl(),
+                LocalDateTime.now(),
+                null));
         lastFocusedWindow = currentFocusedWindow;
-        System.out.println("Application Name: " + currentFocusedWindow.getApplicationName());
-        System.out.println("Window Title: " + currentFocusedWindow.getWindowTitle());
-        System.out.println("Additional Info: " + currentFocusedWindow.getAdditionalInfo());
-        System.out.println("\n");
       }
-
       try {
         Thread.sleep(100); // Sleep for 100 milliseconds
       } catch (InterruptedException e) {
