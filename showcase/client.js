@@ -1,16 +1,17 @@
 const net = require("net");
 
-const client = net.createConnection({ port: 12345 }, () => {
+const client = net.createConnection({ port: 8080 }, () => {
   console.log("Connected to the server");
   client.write(
     JSON.stringify({
       event: "REGISTER_USER",
       payload: {
-        userId: "geoff-demo",
-        accountId: "this-is-an-account-id",
+        userId: "some-random-user-id",
+        accountId: "some-random-account-id",
       },
     }),
   );
+  console.log("Message written");
   client.end();
 });
 

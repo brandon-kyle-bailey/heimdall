@@ -1,44 +1,22 @@
 package heimdall;
 
-import heimdall.adapters.WindowAdapter;
-import heimdall.adapters.EventbusAdapter;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import heimdall.adapters.TcpAdapter;
-import common.shared.enumerator.EMessageKey;
-import heimdall.handlers.CreateApplicationEventHandler;
-import heimdall.handlers.CreateActivityEventHandler;
-import heimdall.handlers.RegisterUserEventHandler;
-import heimdall.repositories.ApplicationPersistenceRepository;
-import heimdall.repositories.UserPersistenceRepository;
-import heimdall.repositories.ActivityPersistenceRepository;
 
 public class App {
   public static void main(String[] args) {
-    EventbusAdapter eventBus = new EventbusAdapter();
+    ExecutorService executorService = Executors.newFixedThreadPool(2);
 
-    TcpAdapter tcpServer = new TcpAdapter(eventBus);
+    // Start TCP server
+    TcpAdapter server = new TcpAdapter(8080);
+    executorService.submit(server);
 
-    UserPersistenceRepository userPersistenceRepository = new UserPersistenceRepository();
-    eventBus.subscribe(EMessageKey.REGISTER_USER.toString(),
-        new RegisterUserEventHandler(userPersistenceRepository));
-
-    ApplicationPersistenceRepository applicationPersistenceRepository = new ApplicationPersistenceRepository();
-    eventBus.subscribe(EMessageKey.CREATE_APPLICATION.toString(),
-        new CreateApplicationEventHandler(applicationPersistenceRepository));
-
-    ActivityPersistenceRepository activityPersistenceRepository = new ActivityPersistenceRepository();
-    eventBus.subscribe(EMessageKey.CREATE_ACTIVITY.toString(),
-        new CreateActivityEventHandler(activityPersistenceRepository));
-
-    WindowAdapter windowAdapter = new WindowAdapter(eventBus);
-    Thread tcpServerThread = new Thread(() -> {
-      // Your TCP server logic here
-      tcpServer.init();
-    });
-    Thread windowAdapterThread = new Thread(() -> {
-      windowAdapter.run();
-    });
-
-    tcpServerThread.start();
-    windowAdapterThread.start();
+    // Add shutdown hook to gracefully shut down the executor when the app exits
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+      System.out.println("Shutting down...");
+      executorService.shutdown(); // Stop the executor service gracefully
+    }));
   }
 }

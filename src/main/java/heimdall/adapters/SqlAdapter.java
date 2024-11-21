@@ -1,5 +1,5 @@
 package heimdall.adapters;
 
-public class EventbusAdapter {
+public class SqlAdapter {
 
 }

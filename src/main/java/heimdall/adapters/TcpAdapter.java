@@ -1,48 +1,58 @@
 package heimdall.adapters;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.io.InputStream;
+import java.io.OutputStream;
 
-import org.json.JSONObject;
+public class TcpAdapter implements Runnable {
+  private int port; // Port to listen on
 
-import heimdall.dtos.RegisterUserDto;
-
-public class TcpAdapter {
-  EventbusAdapter eventBus;
-
-  public TcpAdapter(EventbusAdapter eventBus) {
-    this.eventBus = eventBus;
+  public TcpAdapter(int port) {
+    this.port = port;
   }
 
-  private void handleMessage(String message) {
-    System.err.println("Received tcp message: %s".formatted(message));
-    JSONObject jsonEvent = new JSONObject(message);
-    String event = jsonEvent.getString("event");
-    if (event.equals("REGISTER_USER")) {
-      JSONObject payload = jsonEvent.getJSONObject("payload");
-      RegisterUserDto dto = new RegisterUserDto(payload.getString("userId"),
-          payload.getString("accountId"));
-      this.eventBus.publish("REGISTER_USER", dto);
-    } else {
-      System.out.println("Unrecognized message: " + message);
-    }
-  }
-
-  public void init() {
-    try (ServerSocket serverSocket = new ServerSocket(12345)) {
-      System.out.println("Server ready on port 12345");
+  @Override
+  public void run() {
+    try (ServerSocket serverSocket = new ServerSocket(port)) {
+      System.out.println("TCP server started, listening on port " + port);
       while (true) {
-        Socket socket = serverSocket.accept();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        String message = reader.readLine();
-        this.handleMessage(message);
-        socket.close();
+        Socket clientSocket = serverSocket.accept(); // Accept client connections
+        handleClientConnection(clientSocket);
       }
     } catch (IOException e) {
       e.printStackTrace();
     }
+  }
+
+  private void handleClientConnection(Socket clientSocket) {
+    // Handle the client connection in a separate method
+    try {
+      InputStream input = clientSocket.getInputStream();
+      OutputStream output = clientSocket.getOutputStream();
+
+      // Example: Reading a message from the client
+      byte[] buffer = new byte[1024];
+      int bytesRead = input.read(buffer);
+      if (bytesRead > 0) {
+        String clientMessage = new String(buffer, 0, bytesRead);
+        System.out.println("Received message from client: " + clientMessage);
+      }
+
+      // Sending a response back to the client
+      String response = "Message received\n";
+      output.write(response.getBytes());
+
+      clientSocket.close(); // Close the client connection
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static void main(String[] args) {
+    TcpAdapter server = new TcpAdapter(8080);
+    Thread serverThread = new Thread(server); // Create a new thread for the TCP server
+    serverThread.start(); // Start the server in the background
   }
 }
