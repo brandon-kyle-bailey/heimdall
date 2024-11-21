@@ -1,5 +1,7 @@
 package heimdall.common.interfaces;
 
+import org.json.JSONObject;
+
 public interface IActivityTracker {
 
   public boolean hasPermissions();
@@ -12,7 +14,9 @@ public interface IActivityTracker {
 
   public boolean isLidClosed();
 
-  public Object getActiveWindow();
+  public boolean currentActivityEqualsLastActivity(JSONObject currentActivity, JSONObject lastActivity);
+
+  public JSONObject getActiveWindow();
 
   public void run();
 

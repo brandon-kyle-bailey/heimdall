@@ -30,7 +30,7 @@ public class MacActivityAdapter implements IActivityTracker {
     String script = "tell application \"System Events\"\n" +
         "    -- Get the frontmost application's name\n" +
         "    set frontmostApp to name of first application process whose frontmost is true\n" +
-        "\n" +
+        "    \n" +
         "    -- Try to get the title of the front window (for supported apps)\n" +
         "    try\n" +
         "        set tabTitle to name of front window of application process frontmostApp\n" +
@@ -39,11 +39,10 @@ public class MacActivityAdapter implements IActivityTracker {
         "        set tabTitle to \"No title available\"\n" +
         "    end try\n" +
         "end tell\n" +
-        "\n" +
         "if frontmostApp is \"Safari\" then\n" +
         "    tell application \"Safari\"\n" +
-        "        set tabTitle to name of current tab of window 1\n" +
-        "        set tabURL to URL of current tab of window 1\n" +
+        "        set tabTitle to name of front tab of window 1\n" +
+        "        set tabURL to URL of front tab of window 1\n" +
         "    end tell\n" +
         "    return \"Browser: Safari<BREAK> Title: \" & tabTitle & \"<BREAK> URL: \" & tabURL\n" +
         "else if frontmostApp is \"Google Chrome\" then\n" +
@@ -54,15 +53,13 @@ public class MacActivityAdapter implements IActivityTracker {
         "    return \"Browser: Google Chrome<BREAK> Title: \" & tabTitle & \"<BREAK> URL: \" & tabURL\n" +
         "else if frontmostApp is \"Firefox\" then\n" +
         "    tell application \"Firefox\"\n" +
-        "        set tabTitle to title of active tab of window 1\n" +
-        "        set tabURL to URL of active tab of window 1\n" +
+        "        set tabTitle to title of front window\n" +
+        "        set tabURL to URL of front window\n" +
         "    end tell\n" +
         "    return \"Browser: Firefox<BREAK> Title: \" & tabTitle & \"<BREAK> URL: \" & tabURL\n" +
         "else\n" +
-        "    -- Handle unsupported applications\n" +
-        "    return \"Application: \" & frontmostApp & \"<BREAK> Title: \" & tabTitle\n" +
+        "    return \"Application: \" & frontmostApp & \"<BREAK>Title: \" & tabTitle\n" +
         "end if";
-
     try {
       ProcessBuilder processBuilder = new ProcessBuilder("osascript", "-e", script);
       Process process = processBuilder.start();
@@ -157,8 +154,21 @@ public class MacActivityAdapter implements IActivityTracker {
   }
 
   @Override
-  public Object getActiveWindow() {
-    return null;
+  public JSONObject getActiveWindow() {
+    return this.executeFrontProcessAppleScript();
+  }
+
+  @Override
+  public boolean currentActivityEqualsLastActivity(JSONObject currentActivity, JSONObject lastActivity) {
+    if (currentActivity == null || lastActivity == null) {
+      return currentActivity == lastActivity; // Both null -> true, one null -> false
+    }
+
+    boolean namesMatch = currentActivity.optString("name").equals(lastActivity.optString("name"));
+    boolean titlesMatch = currentActivity.optString("title").equals(lastActivity.optString("title"));
+    boolean urlsMatch = currentActivity.optString("url").equals(lastActivity.optString("url"));
+
+    return namesMatch && titlesMatch && urlsMatch;
   }
 
   @Override
@@ -167,14 +177,11 @@ public class MacActivityAdapter implements IActivityTracker {
       requestPermissions();
       return;
     }
-    LoggerPort.debug("Hello world from mac activity tracker");
-
     JSONObject lastActivity = null; // Track the last focused window
     while (true) {
-      JSONObject currentActivity = this.executeFrontProcessAppleScript();
-      if (currentActivity != null &&
-          !currentActivity.equals(lastActivity)) {
-        LoggerPort.debug("Activity changed: %s".formatted(currentActivity));
+      JSONObject currentActivity = this.getActiveWindow();
+      if (currentActivity != null && !currentActivityEqualsLastActivity(currentActivity, lastActivity)) {
+        LoggerPort.debug("Activity changed: %s -> %s".formatted(lastActivity, currentActivity));
         this._eventbus.publish(EDomainEvents.CREATE_APP.toString(), currentActivity);
         if (lastActivity != null) {
           lastActivity.put("endTime", LocalDateTime.now());
