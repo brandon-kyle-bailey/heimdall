@@ -8,9 +8,11 @@ import java.io.OutputStream;
 
 public class TcpAdapter implements Runnable {
   private int port; // Port to listen on
+  private EventbusAdapter eventbus;
 
-  public TcpAdapter(int port) {
+  public TcpAdapter(int port, EventbusAdapter eventbus) {
     this.port = port;
+    this.eventbus = eventbus;
   }
 
   @Override
@@ -48,11 +50,5 @@ public class TcpAdapter implements Runnable {
     } catch (IOException e) {
       e.printStackTrace();
     }
-  }
-
-  public static void main(String[] args) {
-    TcpAdapter server = new TcpAdapter(8080);
-    Thread serverThread = new Thread(server); // Create a new thread for the TCP server
-    serverThread.start(); // Start the server in the background
   }
 }
