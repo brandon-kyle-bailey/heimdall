@@ -96,19 +96,27 @@ public class WindowAdapter {
       String[] parts = output.split("<BREAK>");
 
       if (output.startsWith("Browser")) {
-        String browserName = parts[0].split(": ")[1];
-        String tabTitle = parts[1].split(": ")[1];
-        String tabURL = parts[2].split(": ")[1];
+        String browserName = extractValue(parts[0]);
+        String tabTitle = extractValue(parts[1]);
+        String tabURL = extractValue(parts[2]);
         return new BrowserWindowInfo(browserName, tabTitle, tabURL, LocalDateTime.now());
       } else if (output.startsWith("Application")) {
-        String applicationName = parts[0].split(": ")[1];
-        String tabTitle = parts[1].split(": ")[1];
+        String applicationName = extractValue(parts[0]);
+        String tabTitle = extractValue(parts[1]);
         return new DesktopWindowInfo(applicationName, tabTitle, LocalDateTime.now());
       }
     } catch (IOException e) {
       e.printStackTrace();
     }
     return null;
+  }
+
+  private static String extractValue(String part) {
+    String[] splitPart = part.split(": ");
+    if (splitPart.length > 1) {
+      return splitPart[1].trim(); // Return the value after ": "
+    }
+    return "Unknown"; // Default value in case of unexpected format
   }
 
   private static boolean hasAccessibilityPermissions() {

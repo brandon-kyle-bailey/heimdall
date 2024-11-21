@@ -6,7 +6,7 @@ const client = net.createConnection({ port: 12345 }, () => {
     JSON.stringify({
       event: "REGISTER_USER",
       payload: {
-        userId: "this-is-a-user-id",
+        userId: "geoff-demo",
         accountId: "this-is-an-account-id",
       },
     }),

@@ -11,9 +11,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PersistenceRepository<T> {
-  private static final String DB_URL = "jdbc:sqlite:p8.db";
+  private static final String DB_URL = "jdbc:sqlite:" + System.getProperty("user.home") + "/p8.db";
 
   protected Connection getConnection() throws SQLException {
+    try {
+      Class.forName("org.sqlite.JDBC");
+    } catch (ClassNotFoundException e) {
+      System.err.println("SQLite JDBC driver not found.");
+      e.printStackTrace();
+    }
     return DriverManager.getConnection(DB_URL);
   }
 
