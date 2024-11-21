@@ -5,6 +5,8 @@ import java.sql.SQLException;
 import java.util.List;
 
 import heimdall.adapters.PersistenceAdapter;
+import heimdall.dtos.UserDto;
+import heimdall.dtos.mappers.UserDtoMapper;
 
 public class UserRepository extends PersistenceAdapter<UserDto> {
   private final String _schema = "user";
@@ -32,19 +34,19 @@ public class UserRepository extends PersistenceAdapter<UserDto> {
   // Read User by ID
   public UserDto read(int id) throws SQLException {
     String sql = "SELECT * FROM %s WHERE id = ?".formatted(this._schema);
-    return read(sql, UserDtoMapper::toDomain, id);
+    return read(sql, UserDtoMapper::persistenceToDomain, id);
   }
 
   // Method to find users by userId
   public List<UserDto> findUsersByAccountIdAndUserId(String accountId, String userId) throws SQLException {
     String sql = "SELECT * FROM %s WHERE accountId = ? AND userId = ?".formatted(this._schema);
-    return list(sql, UserDtoMapper::toDomain, accountId, userId);
+    return list(sql, UserDtoMapper::persistenceToDomain, accountId, userId);
   }
 
   // List all users
   public List<UserDto> list() throws SQLException {
     String sql = "SELECT * FROM %s".formatted(this._schema);
-    return list(sql, UserDtoMapper::toDomain);
+    return list(sql, UserDtoMapper::persistenceToDomain);
   }
 
   // Update User

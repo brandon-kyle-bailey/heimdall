@@ -4,7 +4,7 @@ const client = net.createConnection({ port: 8080 }, () => {
   console.log("Connected to the server");
   client.write(
     JSON.stringify({
-      event: "REGISTER_USER",
+      event: "CREATE_USER",
       payload: {
         userId: "some-random-user-id",
         accountId: "some-random-account-id",

@@ -13,15 +13,21 @@ import heimdall.common.interfaces.IActivityTracker;
 import heimdall.handlers.CreateAppEventHandler;
 import heimdall.handlers.CreateUserEventHandler;
 import heimdall.handlers.UpsertActivityEventHandler;
+import heimdall.repositories.AppRepository;
+import heimdall.repositories.UserRepository;
 
 public class App {
   public static void main(String[] args) {
     EventbusAdapter eventbus = new EventbusAdapter();
     ExecutorService executorService = Executors.newFixedThreadPool(2);
 
+    // Initialize repositories
+    AppRepository appRepository = new AppRepository();
+    UserRepository userRepository = new UserRepository();
+
     // Subscribe events to their handlers
-    eventbus.subscribe(EDomainEvents.CREATE_APP.toString(), new CreateAppEventHandler());
-    eventbus.subscribe(EDomainEvents.CREATE_USER.toString(), new CreateUserEventHandler());
+    eventbus.subscribe(EDomainEvents.CREATE_APP.toString(), new CreateAppEventHandler(appRepository));
+    eventbus.subscribe(EDomainEvents.CREATE_USER.toString(), new CreateUserEventHandler(userRepository));
     eventbus.subscribe(EDomainEvents.UPSERT_ACTIVITY.toString(), new UpsertActivityEventHandler());
 
     // Start TCP server
