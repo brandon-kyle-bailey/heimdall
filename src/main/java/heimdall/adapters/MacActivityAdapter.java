@@ -21,9 +21,9 @@ public class MacActivityAdapter implements IActivityTracker {
   private String extractValue(String part) {
     String[] splitPart = part.split(": ");
     if (splitPart.length > 1) {
-      return splitPart[1].trim(); // Return the value after ": "
+      return splitPart[1].trim();
     }
-    return "Unknown"; // Default value in case of unexpected format
+    return "Unknown";
   }
 
   private JSONObject executeFrontProcessAppleScript() {
@@ -98,7 +98,7 @@ public class MacActivityAdapter implements IActivityTracker {
       }
       return activity;
     } catch (Exception e) {
-      e.printStackTrace();
+      LoggerPort.error("Error executing AppleScript: %s".formatted(e.getMessage()));
     }
     return null;
   }
@@ -106,7 +106,6 @@ public class MacActivityAdapter implements IActivityTracker {
   @Override
   public boolean hasPermissions() {
     try {
-      // Simple check for accessibility permissions
       String script = "tell application \"System Events\" to return (exists (process 1))";
       ProcessBuilder processBuilder = new ProcessBuilder("osascript", "-e", script);
       Process process = processBuilder.start();
@@ -119,7 +118,7 @@ public class MacActivityAdapter implements IActivityTracker {
       }
 
     } catch (Exception e) {
-      LoggerPort.error(e.getMessage());
+      LoggerPort.error("Permission check failed: %s".formatted(e.getMessage()));
     }
     return false;
   }
@@ -134,7 +133,7 @@ public class MacActivityAdapter implements IActivityTracker {
       ProcessBuilder processBuilder = new ProcessBuilder("osascript", "-e", script);
       processBuilder.start();
     } catch (Exception e) {
-      e.printStackTrace();
+      LoggerPort.error("Failed to request permissions: %s".formatted(e.getMessage()));
     }
   }
 
@@ -161,7 +160,7 @@ public class MacActivityAdapter implements IActivityTracker {
   @Override
   public boolean currentActivityEqualsLastActivity(JSONObject currentActivity, JSONObject lastActivity) {
     if (currentActivity == null || lastActivity == null) {
-      return currentActivity == lastActivity; // Both null -> true, one null -> false
+      return currentActivity == lastActivity;
     }
 
     boolean namesMatch = currentActivity.optString("name").equals(lastActivity.optString("name"));
@@ -177,23 +176,28 @@ public class MacActivityAdapter implements IActivityTracker {
       requestPermissions();
       return;
     }
-    JSONObject lastActivity = null; // Track the last focused window
+    JSONObject lastActivity = null;
     while (true) {
       JSONObject currentActivity = this.getActiveWindow();
       if (currentActivity != null && !currentActivityEqualsLastActivity(currentActivity, lastActivity)) {
         LoggerPort.debug("Activity changed: %s -> %s".formatted(lastActivity, currentActivity));
+
         this._eventbus.publish(EDomainEvents.CREATE_APP.toString(), currentActivity);
+
         if (lastActivity != null) {
-          lastActivity.put("endTime", LocalDateTime.now());
+          lastActivity.put("endTime", LocalDateTime.now().toString());
           this._eventbus.publish(EDomainEvents.UPSERT_ACTIVITY.toString(), lastActivity);
         }
-        currentActivity.put("startTime", LocalDateTime.now());
+
+        currentActivity.put("startTime", LocalDateTime.now().toString());
         this._eventbus.publish(EDomainEvents.UPSERT_ACTIVITY.toString(), currentActivity);
+
         lastActivity = currentActivity;
+
         try {
-          Thread.sleep(100); // Sleep for 100 milliseconds
+          Thread.sleep(100);
         } catch (InterruptedException e) {
-          e.printStackTrace();
+          LoggerPort.error("Sleep interrupted: %s".formatted(e.getMessage()));
         }
       }
     }

@@ -15,6 +15,7 @@ import heimdall.handlers.CreateUserEventHandler;
 import heimdall.handlers.UpsertActivityEventHandler;
 import heimdall.repositories.AppRepository;
 import heimdall.repositories.UserRepository;
+import heimdall.repositories.ActivityRepository;
 
 public class App {
   public static void main(String[] args) {
@@ -24,11 +25,12 @@ public class App {
     // Initialize repositories
     AppRepository appRepository = new AppRepository();
     UserRepository userRepository = new UserRepository();
+    ActivityRepository activityRepository = new ActivityRepository();
 
     // Subscribe events to their handlers
     eventbus.subscribe(EDomainEvents.CREATE_APP.toString(), new CreateAppEventHandler(appRepository));
     eventbus.subscribe(EDomainEvents.CREATE_USER.toString(), new CreateUserEventHandler(userRepository));
-    eventbus.subscribe(EDomainEvents.UPSERT_ACTIVITY.toString(), new UpsertActivityEventHandler());
+    eventbus.subscribe(EDomainEvents.UPSERT_ACTIVITY.toString(), new UpsertActivityEventHandler(activityRepository));
 
     // Start TCP server
     TcpAdapter server = new TcpAdapter(8080, eventbus);
