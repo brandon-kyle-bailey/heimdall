@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Disable app sandbox -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+    
+    <!-- Allow the app to use AppleScript automation -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+    
+    <!-- Allow the app to interact with other apps like Safari, Chrome, etc. -->
+    <key>com.apple.security.automation.system-events</key>
+    <true/>
+    
+    <!-- Network client permission (if necessary for network interactions) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    
+    <!-- Allow access to Accessibility features -->
+    <key>com.apple.security.accessibility</key>
+    <true/>
+  </dict>
+</plist>
