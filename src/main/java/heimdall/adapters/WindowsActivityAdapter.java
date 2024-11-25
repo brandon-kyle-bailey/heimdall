@@ -11,9 +11,11 @@ import heimdall.ports.LoggerPort;
 public class WindowsActivityAdapter implements IActivityTracker {
 
   private EventbusAdapter _eventbus;
+  private WebsocketAdapter _websocket;
 
-  public WindowsActivityAdapter(EventbusAdapter eventbus) {
+  public WindowsActivityAdapter(EventbusAdapter eventbus, WebsocketAdapter websocket) {
     this._eventbus = eventbus;
+    this._websocket = websocket;
   }
 
   @Override
@@ -89,5 +91,23 @@ public class WindowsActivityAdapter implements IActivityTracker {
         }
       }
     }
+  }
+
+  @Override
+  public String getApp(String payload) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'getApp'");
+  }
+
+  @Override
+  public String getTitle(String payload) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'getTitle'");
+  }
+
+  @Override
+  public String getUrl(String payload) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'getUrl'");
   }
 }

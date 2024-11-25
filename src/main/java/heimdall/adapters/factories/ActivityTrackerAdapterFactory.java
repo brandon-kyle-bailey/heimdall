@@ -3,19 +3,20 @@ package heimdall.adapters.factories;
 import heimdall.common.interfaces.IActivityTracker;
 import heimdall.ports.LoggerPort;
 import heimdall.adapters.MacActivityAdapter;
+import heimdall.adapters.WebsocketAdapter;
 import heimdall.adapters.WindowsActivityAdapter;
 import heimdall.adapters.EventbusAdapter;
 import heimdall.adapters.LinuxActivityAdapter;
 
 public class ActivityTrackerAdapterFactory {
-  public static IActivityTracker getAdapter(EventbusAdapter eventbus) throws Exception {
+  public static IActivityTracker getAdapter(EventbusAdapter eventbus, WebsocketAdapter websocket) throws Exception {
     String osName = System.getProperty("os.name").toLowerCase();
     if (osName.contains("win")) {
-      return new WindowsActivityAdapter(eventbus);
+      return new WindowsActivityAdapter(eventbus, websocket);
     } else if (osName.contains("mac")) {
-      return new MacActivityAdapter(eventbus);
+      return new MacActivityAdapter(eventbus, websocket);
     } else if (osName.contains("nix") || osName.contains("nux") || osName.contains("aix")) {
-      return new LinuxActivityAdapter(eventbus);
+      return new LinuxActivityAdapter(eventbus, websocket);
     } else {
       LoggerPort.error("Unkown operating system: %s".formatted(osName));
       throw new Exception("Unknown operating system");

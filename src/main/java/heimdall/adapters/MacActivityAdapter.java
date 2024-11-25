@@ -13,9 +13,11 @@ import heimdall.ports.LoggerPort;
 public class MacActivityAdapter implements IActivityTracker {
 
   private EventbusAdapter _eventbus;
+  private WebsocketAdapter _websocket;
 
-  public MacActivityAdapter(EventbusAdapter eventbus) {
+  public MacActivityAdapter(EventbusAdapter eventbus, WebsocketAdapter websocket) {
     this._eventbus = eventbus;
+    this._websocket = websocket;
   }
 
   private String extractValue(String part) {
@@ -88,13 +90,20 @@ public class MacActivityAdapter implements IActivityTracker {
       String[] parts = output.split("<BREAK>");
       JSONObject activity = new JSONObject();
       if (output.startsWith("Browser")) {
-        activity.put("name", extractValue(parts[0]));
-        activity.put("title", extractValue(parts[1]));
-        activity.put("url", extractValue(parts[2]));
+        activity.put("name", this.getApp(parts[0]));
+        activity.put("title", this.getTitle(parts[1]));
+        activity.put("url", this.getUrl(parts[2]));
+        // TODO... this is supported out of the box by mac. dont rely on websocket for
+        // mac
+        // activity.put("url", this.getUrl(parts[2]));
+        String dummyUrl = this.getUrl(parts[0]);
+        LoggerPort.debug("DUMMY URL %s".formatted(dummyUrl));
+        activity.put("url", this.extractValue(parts[2]));
       } else if (output.startsWith("Application")) {
-        activity.put("name", extractValue(parts[0]));
-        activity.put("title", extractValue(parts[1]));
-        activity.put("url", extractValue(parts[1]));
+        activity.put("name", this.getApp(parts[0]));
+        activity.put("title", this.getTitle(parts[1]));
+        activity.put("url", this.extractValue(parts[1]));
+
       }
       return activity;
     } catch (Exception e) {
@@ -201,5 +210,27 @@ public class MacActivityAdapter implements IActivityTracker {
         }
       }
     }
+  }
+
+  @Override
+  public String getApp(String payload) {
+    return this.extractValue(payload);
+  }
+
+  @Override
+  public String getTitle(String payload) {
+    return this.extractValue(payload);
+  }
+
+  @Override
+  public String getUrl(String payload) {
+    String appName = this.extractValue(payload);
+    LoggerPort.debug("GETTING URL FOR APPNAME %s".formatted(appName));
+    JSONObject messageObj = new JSONObject();
+    messageObj.put("channel", appName);
+    messageObj.put("payload", "this is a test");
+    String url = this._websocket.broadcastToChannelSync(appName, messageObj.toString());
+    LoggerPort.debug("URL %s".formatted(url));
+    return this.extractValue(payload);
   }
 }

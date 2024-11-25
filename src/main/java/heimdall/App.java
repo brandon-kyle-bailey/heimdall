@@ -3,7 +3,7 @@ package heimdall;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import heimdall.adapters.TcpAdapter;
+import heimdall.adapters.WebsocketAdapter;
 import heimdall.adapters.EventbusAdapter;
 import heimdall.adapters.factories.ActivityTrackerAdapterFactory;
 import heimdall.ports.LoggerPort;
@@ -32,13 +32,20 @@ public class App {
     eventbus.subscribe(EDomainEvents.CREATE_USER.toString(), new CreateUserEventHandler(userRepository));
     eventbus.subscribe(EDomainEvents.UPSERT_ACTIVITY.toString(), new UpsertActivityEventHandler(activityRepository));
 
-    // Start TCP server
-    TcpAdapter server = new TcpAdapter(8080, eventbus);
-    executorService.submit(server);
+    // support pub/sub for user creation from client
+    String[] defaultChannels = { EDomainEvents.CREATE_USER.toString() };
+    WebsocketAdapter ws = new WebsocketAdapter(8080, eventbus, defaultChannels);
+    for (String defaultChannel : defaultChannels) {
+      ws.addDefaultSubscriber(defaultChannel, message -> {
+        LoggerPort.debug(message);
+      });
+
+    }
+    executorService.submit(ws);
 
     // Start activity tracker
     try {
-      IActivityTracker adapter = ActivityTrackerAdapterFactory.getAdapter(eventbus);
+      IActivityTracker adapter = ActivityTrackerAdapterFactory.getAdapter(eventbus, ws);
       ActivityTrackerPort tracker = new ActivityTrackerPort(adapter);
       executorService.submit(tracker);
     } catch (Exception e) {

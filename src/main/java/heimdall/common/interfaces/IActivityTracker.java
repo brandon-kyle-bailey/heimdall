@@ -16,6 +16,12 @@ public interface IActivityTracker {
 
   public boolean currentActivityEqualsLastActivity(JSONObject currentActivity, JSONObject lastActivity);
 
+  public String getApp(String payload);
+
+  public String getTitle(String payload);
+
+  public String getUrl(String payload);
+
   public JSONObject getActiveWindow();
 
   public void run();

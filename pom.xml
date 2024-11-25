@@ -16,13 +16,21 @@
   </properties>
 
   <dependencies>
+    
+    <!-- Websocket-->
+    <!-- https://mvnrepository.com/artifact/org.java-websocket/Java-WebSocket -->
+    <dependency>
+        <groupId>org.java-websocket</groupId>
+        <artifactId>Java-WebSocket</artifactId>
+        <version>1.5.7</version>
+    </dependency>
 
     <!-- jna for linux-->
-    <dependency>
-     <groupId>com.sun.jna</groupId>
-      <artifactId>jna</artifactId>
-      <version>3.0.9</version>
-    </dependency>
+    <!-- <dependency> -->
+    <!--  <groupId>com.sun.jna</groupId> -->
+    <!--   <artifactId>jna</artifactId> -->
+    <!--   <version>3.0.9</version> -->
+    <!-- </dependency> -->
 
     <!-- SQLite JDBC Driver -->
     <dependency>
@@ -74,7 +82,7 @@
               <artifactSet>
                 <includes>
                   <include>org.xerial:sqlite-jdbc</include> <!-- Include only this dependency -->
-                  <include>com.sun.jna:jna</include> <!-- Include only this dependency -->
+                  <include>org.java-websocket:Java-WebSocket</include> <!-- Include only this dependency -->
                 </includes>
                 <excludes>
                   <exclude>org.junit.jupiter:junit-jupiter-api</exclude> <!-- Exclude JUnit dependencies from final JAR -->
