@@ -3,19 +3,19 @@ package heimdall;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import heimdall.adapters.WebsocketAdapter;
-import heimdall.adapters.EventbusAdapter;
+import heimdall.adapters.application.EventbusAdapter;
 import heimdall.adapters.factories.ActivityTrackerAdapterFactory;
-import heimdall.ports.LoggerPort;
-import heimdall.ports.ActivityTrackerPort;
+import heimdall.adapters.network.WebsocketAdapter;
 import heimdall.common.enums.EDomainEvents;
 import heimdall.common.interfaces.IActivityTracker;
 import heimdall.handlers.CreateAppEventHandler;
 import heimdall.handlers.CreateUserEventHandler;
 import heimdall.handlers.UpsertActivityEventHandler;
+import heimdall.ports.ActivityTrackerPort;
+import heimdall.ports.LoggerPort;
+import heimdall.repositories.ActivityRepository;
 import heimdall.repositories.AppRepository;
 import heimdall.repositories.UserRepository;
-import heimdall.repositories.ActivityRepository;
 
 public class App {
   public static void main(String[] args) {
@@ -45,7 +45,8 @@ public class App {
 
     // Start activity tracker
     try {
-      IActivityTracker adapter = ActivityTrackerAdapterFactory.getAdapter(eventbus, ws);
+      IActivityTracker adapter = ActivityTrackerAdapterFactory.getAdapter(eventbus,
+          ws);
       ActivityTrackerPort tracker = new ActivityTrackerPort(adapter);
       executorService.submit(tracker);
     } catch (Exception e) {
