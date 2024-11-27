@@ -4,7 +4,6 @@ import heimdall.ports.EventObserverPort;
 import heimdall.ports.LoggingPort;
 import heimdall.services.ActivityService;
 import heimdall.services.AppWatcherService;
-import heimdall.services.UserSessionService;
 
 public class EventObserverModule implements Runnable {
   LoggingPort logManager;
