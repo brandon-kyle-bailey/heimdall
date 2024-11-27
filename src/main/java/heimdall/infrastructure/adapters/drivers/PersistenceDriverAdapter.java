@@ -5,12 +5,10 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class PersistenceDriverAdapter {
-  private static String DB_DRIVER = "jdbc:sqlite:";
-  private static String DB_NAME = "p8.db";
-
-  private static String getDatabaseUrl() {
-    return PersistenceDriverAdapter.DB_DRIVER + System.getProperty("user.home") + PersistenceDriverAdapter.DB_NAME;
-  }
+  private final static String DB_DRIVER = "jdbc:sqlite:";
+  private final static String DB_NAME = "p8.db";
+  public final static String DB_URI = PersistenceDriverAdapter.DB_DRIVER + ClientSystemDriver.LocalStoragePath()
+      + PersistenceDriverAdapter.DB_NAME;
 
   public static Connection getConnection() throws SQLException {
     try {
@@ -19,6 +17,6 @@ public class PersistenceDriverAdapter {
       System.err.println("SQLite JDBC driver not found.");
       e.printStackTrace();
     }
-    return DriverManager.getConnection(PersistenceDriverAdapter.getDatabaseUrl());
+    return DriverManager.getConnection(PersistenceDriverAdapter.DB_URI);
   }
 }

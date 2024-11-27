@@ -76,15 +76,15 @@ public class LinuxActivityAdapter implements IActivityTracker {
       if (currentActivity != null && !currentActivityEqualsLastActivity(currentActivity, lastActivity)) {
         this.logManager.debug("Activity changed: %s -> %s".formatted(lastActivity, currentActivity));
 
-        this._eventbus.publish(EDomainEvents.CREATE_APP.toString(), currentActivity);
+        this._eventbus.publish(EDomainEvents.COMMAND_CREATE_APP.toString(), currentActivity);
 
         if (lastActivity != null) {
           lastActivity.put("endTime", LocalDateTime.now().toString());
-          this._eventbus.publish(EDomainEvents.UPSERT_ACTIVITY.toString(), lastActivity);
+          this._eventbus.publish(EDomainEvents.COMMAND_UPSERT_ACTIVITY.toString(), lastActivity);
         }
 
         currentActivity.put("startTime", LocalDateTime.now().toString());
-        this._eventbus.publish(EDomainEvents.UPSERT_ACTIVITY.toString(), currentActivity);
+        this._eventbus.publish(EDomainEvents.COMMAND_UPSERT_ACTIVITY.toString(), currentActivity);
 
         lastActivity = currentActivity;
 

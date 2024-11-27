@@ -1,6 +1,7 @@
 package heimdall.infrastructure.adapters.system;
 
 import heimdall.common.interfaces.IActivityTracker;
+import heimdall.infrastructure.adapters.drivers.ClientSystemDriver;
 import heimdall.infrastructure.adapters.events.EventbusAdapter;
 import heimdall.infrastructure.adapters.system.linux.LinuxActivityAdapter;
 import heimdall.infrastructure.adapters.system.macos.MacosActivityAdapter;
@@ -11,7 +12,7 @@ import heimdall.infrastructure.ports.logging.LoggingPort;
 public class ActivityTrackerAdapterFactory {
   public static IActivityTracker getAdapter(LoggingPort logManager, EventbusAdapter eventbus,
       WebsocketAdapter websocket) throws Exception {
-    String osName = System.getProperty("os.name").toLowerCase();
+    String osName = ClientSystemDriver.getOperatingSystem();
     if (osName.contains("win")) {
       return new WindowsActivityAdapter(logManager, eventbus, websocket);
     } else if (osName.contains("mac")) {
