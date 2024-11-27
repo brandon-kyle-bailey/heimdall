@@ -1,21 +1,44 @@
 package heimdall;
 
-import heimdall.infrastructure.adapters.drivers.PersistenceDriverAdapter;
-import heimdall.infrastructure.adapters.events.EventbusAdapter;
-import heimdall.infrastructure.adapters.logging.LoggingAdapter;
-import heimdall.infrastructure.ports.logging.LoggingPort;
-import heimdall.modules.activity.ActivityModule;
-import heimdall.modules.app.AppModule;
-import heimdall.modules.user.UserModule;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import heimdall.modules.EventObserverModule;
+import heimdall.ports.ActivityPort;
+import heimdall.ports.AppPort;
+import heimdall.ports.LoggingPort;
+import heimdall.services.ActivityService;
+import heimdall.services.AppWatcherService;
 
 public class App {
-  public static void main(String[] args) throws NoSuchMethodException {
-    LoggingAdapter loggingAdapter = new LoggingAdapter(true);
-    LoggingPort logManager = new LoggingPort(loggingAdapter);
-    logManager.debug(PersistenceDriverAdapter.DB_URI);
-    EventbusAdapter eventBus = new EventbusAdapter(logManager);
-    UserModule.load(logManager, eventBus);
-    AppModule.load(logManager, eventBus);
-    ActivityModule.load(logManager, eventBus);
+  public static void main(String[] args) {
+    try {
+
+      // System.out.println(FileSystemAdapter.LocalStoragePath());
+
+      // init logger with debug set to true to log messages
+      LoggingPort logManager = new LoggingPort(true);
+
+      // init ports
+      AppPort appPort = new AppPort();
+      ActivityPort activityPort = new ActivityPort();
+
+      // init services
+      AppWatcherService appService = new AppWatcherService(logManager, appPort);
+      ActivityService activityService = new ActivityService(logManager, activityPort);
+
+      ExecutorService executorService = Executors.newFixedThreadPool(1);
+
+      EventObserverModule eventObserverModule = new EventObserverModule(logManager, appService, activityService);
+      executorService.submit(eventObserverModule);
+
+      // Add shutdown hook to gracefully shut down the executor when the app exits
+      Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        logManager.debug("Shutting down...");
+        executorService.shutdown(); // Stop the executor service gracefully
+      }));
+    } catch (Exception e) {
+      e.getStackTrace();
+    }
   }
 }
