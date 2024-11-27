@@ -152,22 +152,86 @@ public class MacosActivityAdapter implements IActivityTracker {
 
   @Override
   public boolean isIdle() {
+    String appleScript = "set idleTime to (do shell script \"ioreg -c IOHIDSystem | awk '/HIDIdleTime/ {print $NF/1000000; exit}'\")\n"
+        +
+        "return idleTime";
+    try {
+      // Construct the command to run AppleScript
+      String[] command = { "osascript", "-e", appleScript };
+      Process process = Runtime.getRuntime().exec(command);
+
+      // Read the output of the AppleScript
+      BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+      String idleTimeStr = reader.readLine();
+
+      // Convert idle time to a numeric value (in milliseconds)
+      if (idleTimeStr != null) {
+        long idleTime = Long.parseLong(idleTimeStr.trim());
+
+        // Check if idle time is >= 30 seconds (30000 ms)
+        return idleTime >= 30000;
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    // Return false if there is an error or invalid output
     return false;
   }
 
   @Override
   public boolean isSuspended() {
-    return false;
+    try {
+      // Run the pmset command
+      String[] command = { "pmset", "-g", "ps" };
+      Process process = Runtime.getRuntime().exec(command);
+
+      // Read the output of the command
+      BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+      String line;
+      while ((line = reader.readLine()) != null) {
+        // Check for sleep indicators
+        if (line.toLowerCase().contains("sleep")) {
+          return true;
+        }
+      }
+      process.waitFor();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return false; // Default to false if no indication is found
   }
 
   @Override
   public boolean isLidClosed() {
-    return false;
+    try {
+      // Run the pmset command
+      String[] command = { "pmset", "-g", "ps" };
+      Process process = Runtime.getRuntime().exec(command);
+
+      // Read the output of the command
+      BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+      String line;
+      while ((line = reader.readLine()) != null) {
+        // Check for lid-closed indicators
+        if (line.toLowerCase().contains("lid")) {
+          return true;
+        }
+      }
+      process.waitFor();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return false; // Default to false if no indication is found
   }
 
   @Override
   public JSONObject getActiveWindow() {
-    return this.executeFrontProcessAppleScript();
+    if (!this.isIdle() && !this.isLidClosed() && !this.isSuspended()) {
+      return this.executeFrontProcessAppleScript();
+    }
+    this.logManager.debug("Machine is either idle, lid closed or suspended");
+    return null;
   }
 
   @Override
