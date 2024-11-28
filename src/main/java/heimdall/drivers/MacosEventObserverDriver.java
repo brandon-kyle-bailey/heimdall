@@ -4,6 +4,9 @@ package heimdall.drivers;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.time.LocalDateTime;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.json.JSONObject;
 
@@ -12,10 +15,6 @@ import heimdall.common.interfaces.IEventObserverDriver;
 import heimdall.ports.LoggingPort;
 import heimdall.services.ActivityService;
 import heimdall.services.AppWatcherService;
-
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 public class MacosEventObserverDriver implements IEventObserverDriver {
 
@@ -76,66 +75,97 @@ public class MacosEventObserverDriver implements IEventObserverDriver {
 
   @Override
   public boolean isIdle() {
-    String appleScript = "set idleTime to (do shell script \"ioreg -c IOHIDSystem | awk '/HIDIdleTime/ {print $NF/1000000; exit}'\")\n"
-        +
-        "return idleTime";
     try {
-      // Construct the command to run AppleScript
-      String[] command = { "osascript", "-e", appleScript };
+      String[] command = { "pmset", "-g", "assertions" };
       Process process = Runtime.getRuntime().exec(command);
 
-      // Read the output of the AppleScript
       BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-      String idleTimeStr = reader.readLine();
+      String line;
+      boolean isBlockingIdle = false;
 
-      // Convert idle time to a numeric value (in milliseconds)
+      while ((line = reader.readLine()) != null) {
+        if (line.contains("PreventUserIdleDisplaySleep") && line.contains("1")) {
+          isBlockingIdle = true;
+        }
+      }
+
+      if (isBlockingIdle) {
+        return false;
+      }
+
+      String appleScript = "set idleTime to (do shell script \"ioreg -c IOHIDSystem | awk '/HIDIdleTime/ {print $NF/1000000; exit}'\")\n"
+          + "return idleTime";
+      String[] idleCommand = { "osascript", "-e", appleScript };
+      Process idleProcess = Runtime.getRuntime().exec(idleCommand);
+      BufferedReader idleReader = new BufferedReader(new InputStreamReader(idleProcess.getInputStream()));
+      String idleTimeStr = idleReader.readLine();
+
       if (idleTimeStr != null) {
         double idleTime = Double.parseDouble(idleTimeStr.trim());
-
-        // Check if idle time is >= 30 seconds (30000 ms)
         return idleTime >= 30000;
       }
     } catch (Exception e) {
-      e.printStackTrace();
+      this.logManager.error(e.getMessage());
     }
 
-    // Return false if there is an error or invalid output
     return false;
   }
 
   @Override
   public boolean isSuspended() {
     try {
-      // Run the pmset command
-      String[] command = { "pmset", "-g", "ps" };
-      Process process = Runtime.getRuntime().exec(command);
+      String[] pmsetCommand = { "pmset", "-g", "assertions" };
+      Process pmsetProcess = Runtime.getRuntime().exec(pmsetCommand);
+      BufferedReader pmsetReader = new BufferedReader(new InputStreamReader(pmsetProcess.getInputStream()));
 
-      // Read the output of the command
-      BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+      boolean systemSleepAllowed = true;
+      boolean displaySleepAllowed = true;
+
       String line;
-      while ((line = reader.readLine()) != null) {
-        // Check for sleep indicators
-        if (line.toLowerCase().contains("sleep")) {
-          return true;
+      while ((line = pmsetReader.readLine()) != null) {
+        if (line.contains("PreventUserIdleDisplaySleep") && line.contains("1")) {
+          displaySleepAllowed = false;
+        }
+        if (line.contains("PreventUserIdleSystemSleep") && line.contains("1")) {
+          systemSleepAllowed = false;
         }
       }
-      process.waitFor();
+      return systemSleepAllowed && displaySleepAllowed;
     } catch (Exception e) {
-      e.printStackTrace();
+      this.logManager.error(e.getMessage());
     }
-    return false; // Default to false if no indication is found
+
+    return false;
   }
 
   @Override
   public boolean isLocked() {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'isLocked'");
-  }
+    try {
+      String screensaverCheck = "tell application \"System Events\" to return screen saver running";
+      String[] appleScriptCommand = { "osascript", "-e", screensaverCheck };
+      Process appleScriptProcess = Runtime.getRuntime().exec(appleScriptCommand);
+      BufferedReader appleScriptReader = new BufferedReader(new InputStreamReader(appleScriptProcess.getInputStream()));
+      boolean screensaverRunning = false;
 
-  @Override
-  public boolean isLidClosed() {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'isLidClosed'");
+      String line;
+      if ((line = appleScriptReader.readLine()) != null && line.equals("true")) {
+        screensaverRunning = true;
+      }
+
+      String loginCheck = "tell application \"System Events\" to return (exists (window 1 of process \"loginwindow\"))";
+      String[] appleLoginCheckCommand = { "osascript", "-e", loginCheck };
+      Process appleLoginProcess = Runtime.getRuntime().exec(appleLoginCheckCommand);
+      BufferedReader appleLoginReader = new BufferedReader(new InputStreamReader(appleLoginProcess.getInputStream()));
+      boolean loginWindowVisible = false;
+
+      if ((line = appleLoginReader.readLine()) != null && line.equals("true")) {
+        loginWindowVisible = true;
+      }
+      return screensaverRunning || loginWindowVisible;
+    } catch (Exception e) {
+      this.logManager.error(e.getMessage());
+    }
+    return false;
   }
 
   @Override
@@ -156,34 +186,57 @@ public class MacosEventObserverDriver implements IEventObserverDriver {
     return extractValue(payload);
   }
 
+  /**
+   * Must rely on bifrost to retrieve the tab title and url of the following
+   * browsers:
+   * - firefox
+   **/
   @Override
-  public String getAppTitle(String payload) {
+  public String getAppTitle(String appName, String payload) {
+    // if were dealing with a browser and that browser is firefox:
+    // reach out to bifrost to get the tab title and url
+    if (!"Application".equals(appName) && appName.equals("Firefox")) {
+      JSONObject request = new JSONObject();
+      String requestId = UUID.randomUUID().toString(); // Generate a unique ID for the request
+      String channel = appName + ".GET_CURRENT_TAB";
+      request.put("action", "request");
+      request.put("channel", channel); // Channel to request the URL
+      request.put("payload", "Requesting current TAB");
+      request.put("requestId", requestId); // Add the requestId to the request
+
+      // Send the request and wait for the response
+      CompletableFuture<String> futureResponse = this.websocket.broadcastToChannelSync(channel,
+          request.toString());
+      try {
+        long timeoutMillis = 1000; // 1 seconds timeout
+        String currentTitle = futureResponse.get(timeoutMillis, TimeUnit.MILLISECONDS);
+        // this.logManager.debug("Received current URL: " + currentUrl);
+        // fallback to the payload if no title can be found
+        return currentTitle != null ? currentTitle : extractValue(payload);
+      } catch (Exception e) {
+        this.logManager.error("Error getting current browser tab title: " + e.getMessage());
+      }
+    }
     return extractValue(payload);
   }
 
-  // @Override
-  // public String getAppUrl(String appName, String payload) {
-  // return extractValue(payload);
-  // }
-
   /**
-   * This is a demo version of the getAppUrl that leverages websockets to
-   * communicate with
-   * the browser extension to retreive the url when the given app is a browser
-   * this is natively supported on macos and will only be needed on windows and
-   * linux
+   * Must rely on bifrost to retrieve the tab title and url of the following
+   * browsers:
+   * - firefox
    **/
   @Override
   public String getAppUrl(String appName, String payload) {
-    if (!"Application".equals(appName)) {
+    // if were dealing with a browser and that browser is firefox:
+    // reach out to bifrost to get the tab title and url
+    if (!"Application".equals(appName) && appName.equals("Firefox")) {
       JSONObject request = new JSONObject();
       String requestId = UUID.randomUUID().toString(); // Generate a unique ID for the request
+      String channel = appName + ".GET_CURRENT_URL";
       request.put("action", "request");
-      request.put("channel", "GET_CURRENT_URL"); // Channel to request the URL
+      request.put("channel", channel); // Channel to request the URL
       request.put("payload", "Requesting current URL");
       request.put("requestId", requestId); // Add the requestId to the request
-
-      String channel = appName + ".GET_CURRENT_URL";
 
       // Send the request and wait for the response
       CompletableFuture<String> futureResponse = this.websocket.broadcastToChannelSync(channel,
@@ -191,10 +244,11 @@ public class MacosEventObserverDriver implements IEventObserverDriver {
       try {
         long timeoutMillis = 1000; // 1 seconds timeout
         String currentUrl = futureResponse.get(timeoutMillis, TimeUnit.MILLISECONDS);
-        this.logManager.debug("Received current URL: " + currentUrl);
-        return currentUrl;
+        // this.logManager.debug("Received current URL: " + currentUrl);
+        // fallback to the payload if no title can be found
+        return currentUrl != null ? currentUrl : extractValue(payload);
       } catch (Exception e) {
-        this.logManager.error("Error getting current URL: " + e.getMessage());
+        this.logManager.error("Error getting current browser url: " + e.getMessage());
       }
     }
     return extractValue(payload);
@@ -258,12 +312,12 @@ public class MacosEventObserverDriver implements IEventObserverDriver {
       String[] parts = output.split("<BREAK>");
       JSONObject activity = new JSONObject();
       String appName = this.getAppName(parts[0]);
-      String appTitle = this.getAppTitle(parts[1]);
       activity.put("name", appName);
-      activity.put("title", appTitle);
       if (output.startsWith("Browser")) {
+        activity.put("title", this.getAppTitle(appName, parts[1]));
         activity.put("url", this.getAppUrl(appName, parts[2]));
       } else {
+        activity.put("title", this.getAppTitle("Application", parts[1]));
         activity.put("url", this.getAppUrl("Application", parts[1]));
       }
       return activity;
@@ -288,6 +342,14 @@ public class MacosEventObserverDriver implements IEventObserverDriver {
     while (true) {
       if (isIdle()) {
         this.logManager.debug("System idle");
+        continue;
+      }
+      if (isLocked()) {
+        this.logManager.debug("System locked");
+        continue;
+      }
+      if (isSuspended()) {
+        this.logManager.debug("System suspended");
         continue;
       }
       JSONObject currentEvent = getCurrentSystemState();

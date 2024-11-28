@@ -4,6 +4,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import heimdall.adapters.EventbusAdapter;
+import heimdall.adapters.FileSystemAdapter;
 import heimdall.adapters.WebsocketAdapter;
 import heimdall.handlers.CreateUserEventHandler;
 import heimdall.modules.EventObserverModule;
@@ -19,10 +20,10 @@ public class App {
   public static void main(String[] args) {
     try {
 
-      // System.out.println(FileSystemAdapter.LocalStoragePath());
-
       // init logger with debug set to true to log messages
       LoggingPort logManager = new LoggingPort(true);
+
+      logManager.debug(FileSystemAdapter.LocalStoragePath());
 
       EventbusAdapter eventbus = new EventbusAdapter(logManager);
 

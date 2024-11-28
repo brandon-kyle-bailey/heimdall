@@ -14,7 +14,7 @@ public class EventObserverPort {
           activityService, websocket);
       driver.run();
     } catch (Exception e) {
-      e.printStackTrace();
+      logManager.error(e.getMessage());
     }
   }
 }

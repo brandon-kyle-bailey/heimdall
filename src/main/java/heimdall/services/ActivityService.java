@@ -52,12 +52,11 @@ public class ActivityService {
           endTime,
           duration);
       this.port.create(activity);
+      // HttpService.post(activity);
     } catch (SQLException e) {
       this.logManager.error("SQL Error during UpsertActivityEventHandler.handle:%s".formatted(e.getMessage()));
-      e.printStackTrace();
     } catch (Exception e) {
       this.logManager.error("Unexpected error during UpsertActivityEventHandler.handle:%s".formatted(e.getMessage()));
-      e.printStackTrace();
     }
     return;
   }

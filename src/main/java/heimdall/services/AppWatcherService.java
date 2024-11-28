@@ -29,7 +29,7 @@ public class AppWatcherService {
       AppEntity app = new AppEntity(0, appName);
       this.port.create(app);
     } catch (SQLException e) {
-      e.printStackTrace();
+      this.logManager.error(e.getMessage());
     }
     return;
   }

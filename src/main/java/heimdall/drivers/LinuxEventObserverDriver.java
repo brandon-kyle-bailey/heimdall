@@ -52,12 +52,6 @@ public class LinuxEventObserverDriver implements IEventObserverDriver {
   }
 
   @Override
-  public boolean isLidClosed() {
-    // TODO Auto-generated method stub
-    throw new UnsupportedOperationException("Unimplemented method 'isLidClosed'");
-  }
-
-  @Override
   public boolean stateChangeIsSame(JSONObject last, JSONObject current) {
     // TODO Auto-generated method stub
     throw new UnsupportedOperationException("Unimplemented method 'stateChangeIsSame'");
@@ -70,7 +64,7 @@ public class LinuxEventObserverDriver implements IEventObserverDriver {
   }
 
   @Override
-  public String getAppTitle(String payload) {
+  public String getAppTitle(String appName, String payload) {
     // TODO Auto-generated method stub
     throw new UnsupportedOperationException("Unimplemented method 'getAppTitle'");
   }

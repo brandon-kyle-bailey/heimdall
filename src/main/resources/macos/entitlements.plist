@@ -21,5 +21,9 @@
     <!-- Allow access to Accessibility features -->
     <key>com.apple.security.accessibility</key>
     <true/>
+    
+    <!-- Allow background execution and system launchd usage -->
+    <key>com.apple.security.launchd</key>
+    <true/>
   </dict>
 </plist>

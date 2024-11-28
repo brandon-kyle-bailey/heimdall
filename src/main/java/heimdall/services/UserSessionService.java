@@ -29,7 +29,7 @@ public class UserSessionService {
       UserEntity user = new UserEntity(0, userId, accountId);
       this.port.create(user);
     } catch (SQLException e) {
-      e.printStackTrace();
+      this.logManager.error(e.getMessage());
     }
     return;
   }

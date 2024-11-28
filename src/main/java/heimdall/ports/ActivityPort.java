@@ -19,7 +19,7 @@ public class ActivityPort extends PersistenceAdapter<ActivityEntity> {
   }
 
   public void migrate() throws SQLException {
-    String createTableSQL = "CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, title TEXT NOT NULL, url TEXT NULL, startTime TEXT NOT NULL, endTime TEXT NULL, duration int NULL)"
+    String createTableSQL = "CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, title TEXT NOT NULL, url TEXT NULL, startTime TEXT NOT NULL, endTime TEXT NULL, duration int NULL, processed int DEFAULT 0 NOT NULL)"
         .formatted(this._schema);
     createTableIfNotExists(createTableSQL);
   }

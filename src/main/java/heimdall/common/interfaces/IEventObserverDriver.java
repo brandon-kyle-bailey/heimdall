@@ -13,13 +13,11 @@ public interface IEventObserverDriver {
 
   public boolean isLocked();
 
-  public boolean isLidClosed();
-
   public boolean stateChangeIsSame(JSONObject last, JSONObject current);
 
   public String getAppName(String payload);
 
-  public String getAppTitle(String payload);
+  public String getAppTitle(String appName, String payload);
 
   public String getAppUrl(String appType, String payload);
 

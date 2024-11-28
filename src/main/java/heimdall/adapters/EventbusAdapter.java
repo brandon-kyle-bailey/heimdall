@@ -27,7 +27,7 @@ public class EventbusAdapter {
         // handle method defined in heimdall.common.intefaces.IEventHandler
         handler.getClass().getMethod("handle", event.getClass()).invoke(handler, event);
       } catch (Exception e) {
-        e.printStackTrace();
+        this.logManager.error(e.getMessage());
       }
     } else {
       this.logManager.warn("No handler found for event: %s".formatted(eventType));
