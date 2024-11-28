@@ -4,26 +4,32 @@ package heimdall.drivers;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 import org.json.JSONObject;
 
+import heimdall.adapters.WebsocketAdapter;
 import heimdall.common.interfaces.IEventObserverDriver;
 import heimdall.ports.LoggingPort;
 import heimdall.services.ActivityService;
 import heimdall.services.AppWatcherService;
+
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public class MacosEventObserverDriver implements IEventObserverDriver {
 
   private LoggingPort logManager;
   private AppWatcherService appService;
   private ActivityService activityService;
+  private WebsocketAdapter websocket;
 
   public MacosEventObserverDriver(LoggingPort logManager, AppWatcherService appService,
-      ActivityService activityService) {
+      ActivityService activityService, WebsocketAdapter websocket) {
     this.logManager = logManager;
     this.appService = appService;
     this.activityService = activityService;
+    this.websocket = websocket;
   }
 
   private String extractValue(String part) {
@@ -155,8 +161,42 @@ public class MacosEventObserverDriver implements IEventObserverDriver {
     return extractValue(payload);
   }
 
+  // @Override
+  // public String getAppUrl(String appName, String payload) {
+  // return extractValue(payload);
+  // }
+
+  /**
+   * This is a demo version of the getAppUrl that leverages websockets to
+   * communicate with
+   * the browser extension to retreive the url when the given app is a browser
+   * this is natively supported on macos and will only be needed on windows and
+   * linux
+   **/
   @Override
   public String getAppUrl(String appName, String payload) {
+    if (!"Application".equals(appName)) {
+      JSONObject request = new JSONObject();
+      String requestId = UUID.randomUUID().toString(); // Generate a unique ID for the request
+      request.put("action", "request");
+      request.put("channel", "GET_CURRENT_URL"); // Channel to request the URL
+      request.put("payload", "Requesting current URL");
+      request.put("requestId", requestId); // Add the requestId to the request
+
+      String channel = appName + ".GET_CURRENT_URL";
+
+      // Send the request and wait for the response
+      CompletableFuture<String> futureResponse = this.websocket.broadcastToChannelSync(channel,
+          request.toString());
+      try {
+        long timeoutMillis = 1000; // 1 seconds timeout
+        String currentUrl = futureResponse.get(timeoutMillis, TimeUnit.MILLISECONDS);
+        this.logManager.debug("Received current URL: " + currentUrl);
+        return currentUrl;
+      } catch (Exception e) {
+        this.logManager.error("Error getting current URL: " + e.getMessage());
+      }
+    }
     return extractValue(payload);
   }
 
@@ -186,11 +226,7 @@ public class MacosEventObserverDriver implements IEventObserverDriver {
         "    end tell\n" +
         "    return \"Browser: Google Chrome<BREAK> Title: \" & tabTitle & \"<BREAK> URL: \" & tabURL\n" +
         "else if frontmostApp is \"Firefox\" then\n" +
-        "    tell application \"Firefox\"\n" +
-        "        set tabTitle to title of front window\n" +
-        "        set tabURL to URL of front window\n" +
-        "    end tell\n" +
-        "    return \"Browser: Firefox<BREAK> Title: \" & tabTitle & \"<BREAK> URL: \" & tabURL\n" +
+        "    return \"Browser: Firefox<BREAK> Title: Firefox<BREAK>URL: Firefox\"\n" +
         "else\n" +
         "    return \"Application: \" & frontmostApp & \"<BREAK>Title: \" & tabTitle\n" +
         "end if";
@@ -228,7 +264,7 @@ public class MacosEventObserverDriver implements IEventObserverDriver {
       if (output.startsWith("Browser")) {
         activity.put("url", this.getAppUrl(appName, parts[2]));
       } else {
-        activity.put("url", this.getAppUrl(appName, parts[1]));
+        activity.put("url", this.getAppUrl("Application", parts[1]));
       }
       return activity;
     } catch (Exception e) {

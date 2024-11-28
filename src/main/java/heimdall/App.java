@@ -38,13 +38,13 @@ public class App {
 
       ExecutorService executorService = Executors.newFixedThreadPool(2);
 
-      EventObserverModule eventObserverModule = new EventObserverModule(logManager, appService, activityService);
-
       CreateUserEventHandler createUserEventHandler = new CreateUserEventHandler(logManager, userService);
       eventbus.subscribe("CREATE_USER", createUserEventHandler);
 
-      String[] channels = { "CREATE_USER" };
-      WebsocketAdapter ws = new WebsocketAdapter(logManager, eventbus, 8080, channels);
+      WebsocketAdapter ws = new WebsocketAdapter(logManager, eventbus, 8080);
+
+      EventObserverModule eventObserverModule = new EventObserverModule(logManager, appService, activityService,
+          ws);
 
       executorService.submit(eventObserverModule);
       executorService.submit(ws);

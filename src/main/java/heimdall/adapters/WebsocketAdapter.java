@@ -8,106 +8,95 @@ import org.json.JSONObject;
 import heimdall.ports.LoggingPort;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.function.Consumer;
+import java.util.concurrent.CompletableFuture;
+import java.util.UUID;
 
 public class WebsocketAdapter extends WebSocketServer {
-  private final EventbusAdapter eventbus;
   private final LoggingPort logManager;
+  private final EventbusAdapter eventbus;
+  private final ConcurrentHashMap<String, CompletableFuture<String>> pendingRequests = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, CopyOnWriteArraySet<WebSocket>> channelSubscriptions = new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<String, Consumer<String>> defaultSubscribers = new ConcurrentHashMap<>();
 
-  public WebsocketAdapter(LoggingPort logManager, EventbusAdapter eventbus, int port, String[] channels) {
+  public WebsocketAdapter(LoggingPort logManager, EventbusAdapter eventbus, int port) {
     super(new InetSocketAddress(port));
     this.logManager = logManager;
     this.eventbus = eventbus;
-
-    // Initialize predefined channels
-    for (String channel : channels) {
-      channelSubscriptions.putIfAbsent(channel, new CopyOnWriteArraySet<>());
-      this.logManager.debug("Initialized channel: %s".formatted(channel));
-    }
   }
 
   @Override
   public void onOpen(WebSocket conn, ClientHandshake handshake) {
-    this.logManager.debug("WebSocket connection opened: %s".formatted(conn.getRemoteSocketAddress()));
+    this.logManager.debug("Connection opened: " + conn.getRemoteSocketAddress());
   }
 
   @Override
   public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-    this.logManager.debug("WebSocket connection closed: %s".formatted(conn.getRemoteSocketAddress()));
-    channelSubscriptions.forEach((channel, subscribers) -> unsubscribeFromChannel(conn, channel));
+    this.logManager.debug("Connection closed: " + conn.getRemoteSocketAddress());
+    channelSubscriptions.forEach((channel, subscribers) -> unsubscribe(conn, channel));
   }
 
   @Override
   public void onMessage(WebSocket conn, String message) {
-    this.logManager.debug("Received WebSocket message: %s".formatted(message));
+    this.logManager.debug("Received message: " + message);
     try {
-      JSONObject jsonEvent = new JSONObject(message);
-      String action = jsonEvent.optString("action");
+      JSONObject json = new JSONObject(message);
+      String action = json.optString("action");
+      String requestId = json.optString("requestId");
 
       switch (action) {
         case "subscribe":
-          String subscribeChannel = jsonEvent.getString("channel");
-          subscribeToChannel(conn, subscribeChannel);
-          conn.send("Subscribed to channel: %s".formatted(subscribeChannel));
+          String channel = json.getString("channel");
+          subscribe(conn, channel);
+          conn.send("Subscribed to channel: " + channel);
           break;
-
-        case "unsubscribe":
-          String unsubscribeChannel = jsonEvent.getString("channel");
-          unsubscribeFromChannel(conn, unsubscribeChannel);
-          conn.send("Unsubscribed from channel: %s".formatted(unsubscribeChannel));
+        case "mutation":
+          String mutationChannel = json.getString("channel");
+          String mutationPayload = json.getString("payload");
+          this.eventbus.publish(mutationChannel, new JSONObject(mutationPayload));
           break;
 
         case "publish":
-          String publishChannel = jsonEvent.getString("channel");
-          String payload = jsonEvent.getString("payload");
-          // Publish to eventbus
-          this.eventbus.publish(publishChannel, new JSONObject(payload));
-          // Broadcast to channel
-          String response = broadcastToChannelSync(publishChannel, payload);
-          conn.send("publish Broadcast completed with response: %s".formatted(response));
+          String publishChannel = json.getString("channel");
+          String payload = json.getString("payload");
+          broadcast(publishChannel, payload);
           break;
+
         case "response":
-          String responseChannel = jsonEvent.getString("channel");
-          String responsePayload = jsonEvent.getString("payload");
-          // Broadcast to channel
-          String result = broadcastToChannelSync(responseChannel, responsePayload);
-          conn.send("response Broadcast completed with response: %s".formatted(result));
+          if (requestId != null) {
+            handleResponse(requestId, json.optString("payload", ""));
+          } else {
+            this.logManager.error("Response received without a requestId.");
+          }
           break;
 
         default:
-          this.logManager.warn("Unrecognized action: %s".formatted(action));
-          conn.send("Error: Unrecognized action");
+          conn.send("Unrecognized action: " + action);
           break;
       }
     } catch (Exception e) {
-      this.logManager.error("Failed to handle message: %s".formatted(message));
-      conn.send("Error: Invalid message format");
+      this.logManager.error("Error handling message: " + e.getMessage());
     }
   }
 
   @Override
   public void onError(WebSocket conn, Exception ex) {
-    this.logManager.error("WebSocket error: %s".formatted(ex.getMessage()));
-    ex.printStackTrace();
+    this.logManager.error("Error: " + ex.getMessage());
   }
 
   @Override
   public void onStart() {
-    this.logManager.debug("WebSocket server started.");
+    this.logManager.debug("WebSocket server started on port " + getPort());
   }
 
   // Subscribe a connection to a channel
-  private void subscribeToChannel(WebSocket conn, String channel) {
+  private void subscribe(WebSocket conn, String channel) {
     channelSubscriptions.computeIfAbsent(channel, k -> new CopyOnWriteArraySet<>()).add(conn);
-    this.logManager.debug("Connection %s subscribed to channel %s".formatted(conn.getRemoteSocketAddress(), channel));
+    this.logManager.debug(conn.getRemoteSocketAddress() + " subscribed to " + channel);
   }
 
   // Unsubscribe a connection from a channel
-  private void unsubscribeFromChannel(WebSocket conn, String channel) {
+  private void unsubscribe(WebSocket conn, String channel) {
     CopyOnWriteArraySet<WebSocket> subscribers = channelSubscriptions.get(channel);
     if (subscribers != null) {
       subscribers.remove(conn);
@@ -115,65 +104,64 @@ public class WebsocketAdapter extends WebSocketServer {
         channelSubscriptions.remove(channel);
       }
     }
-    this.logManager
-        .debug("Connection %s unsubscribed from channel %s".formatted(conn.getRemoteSocketAddress(), channel));
+    this.logManager.debug(conn.getRemoteSocketAddress() + " unsubscribed from " + channel);
   }
 
-  // Synchronous broadcast to a channel and collect responses
-  @SuppressWarnings("unchecked")
-  public String broadcastToChannelSync(String channel, String message) {
+  // Broadcast a message to all subscribers of a channel
+  private void broadcast(String channel, String message) {
     CopyOnWriteArraySet<WebSocket> subscribers = channelSubscriptions.get(channel);
-    if (subscribers == null || subscribers.isEmpty()) {
-      // Use default subscriber if available
-      Consumer<String> defaultSubscriber = defaultSubscribers.get(channel);
-      if (defaultSubscriber != null) {
-        defaultSubscriber.accept(message);
-        return "Handled by default subscriber for channel %s".formatted(channel);
+    if (subscribers != null && !subscribers.isEmpty()) {
+      for (WebSocket conn : subscribers) {
+        try {
+          conn.send(message);
+        } catch (Exception e) {
+          this.logManager.error("Failed to send message to " + conn.getRemoteSocketAddress());
+        }
       }
-      return "No subscribers";
+    } else {
+      this.logManager.debug("No subscribers for channel: " + channel);
     }
-
-    // Use CompletableFuture to wait for all responses
-    CompletableFuture<String>[] futures = subscribers.stream()
-        .map(conn -> CompletableFuture.supplyAsync(() -> {
-          try {
-            conn.send(message);
-            return "Response from %s".formatted(conn.getRemoteSocketAddress());
-          } catch (Exception e) {
-            this.logManager.error("Failed to send message to %s".formatted(conn.getRemoteSocketAddress()));
-            return "Error from %s".formatted(conn.getRemoteSocketAddress());
-          }
-        }))
-        .toArray(CompletableFuture[]::new);
-
-    // Wait for all responses to complete
-    CompletableFuture<Void> allDone = CompletableFuture.allOf(futures);
-    try {
-      allDone.get(5, TimeUnit.SECONDS); // Timeout after 5 seconds
-    } catch (Exception e) {
-      this.logManager.error("Error waiting for broadcast responses: %s".formatted(e.getMessage()));
-    }
-
-    // Collect responses
-    StringBuilder responseBuilder = new StringBuilder();
-    for (CompletableFuture<String> future : futures) {
-      try {
-        responseBuilder.append(future.get()).append("\n");
-      } catch (Exception e) {
-        responseBuilder.append("Error collecting response").append("\n");
-      }
-    }
-
-    return responseBuilder.toString();
   }
 
-  // Add a default subscriber for a channel
-  public void addDefaultSubscriber(String channel, Consumer<String> subscriber) {
-    if (!channelSubscriptions.containsKey(channel)) {
-      this.logManager.warn("Channel %s does not exist, initializing it.".formatted(channel));
-      channelSubscriptions.putIfAbsent(channel, new CopyOnWriteArraySet<>());
+  public CompletableFuture<String> broadcastToChannelSync(String channel, String requestPayload) {
+    String requestId = UUID.randomUUID().toString();
+    CompletableFuture<String> future = new CompletableFuture<>();
+    pendingRequests.put(requestId, future);
+
+    JSONObject request = new JSONObject();
+    request.put("action", "request");
+    request.put("requestId", requestId);
+    request.put("payload", requestPayload);
+    request.put("channel", channel);
+
+    broadcast(channel, request.toString()); // Broadcast to the channel
+
+    return future;
+  }
+
+  // Handle a response from a client
+  private void handleResponse(String requestId, String payload) {
+    CompletableFuture<String> future = pendingRequests.remove(requestId);
+    if (future != null) {
+      future.complete(payload);
+      this.logManager.debug("Response received for requestId " + requestId + ": " + payload);
+    } else {
+      this.logManager.error("No pending request for requestId " + requestId);
     }
-    defaultSubscribers.put(channel, subscriber);
-    this.logManager.debug("Added default subscriber for channel: %s".formatted(channel));
+  }
+
+  // Send a request and wait for a response
+  public CompletableFuture<String> sendRequest(String channel, String payload) {
+    String requestId = UUID.randomUUID().toString();
+    CompletableFuture<String> future = new CompletableFuture<>();
+    pendingRequests.put(requestId, future);
+
+    JSONObject request = new JSONObject();
+    request.put("action", "request");
+    request.put("requestId", requestId);
+    request.put("payload", payload);
+
+    broadcast(channel, request.toString());
+    return future;
   }
 }
