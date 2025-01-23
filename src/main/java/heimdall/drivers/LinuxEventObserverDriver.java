@@ -10,15 +10,15 @@ import heimdall.services.AppWatcherService;
 
 public class LinuxEventObserverDriver implements IEventObserverDriver {
 
-  private LoggingPort logManager;
-  private AppWatcherService appService;
-  private ActivityService activityService;
+  // private LoggingPort logManager;
+  // private AppWatcherService appService;
+  // private ActivityService activityService;
 
   public LinuxEventObserverDriver(LoggingPort logManager, AppWatcherService appService,
       ActivityService activityService) {
-    this.logManager = logManager;
-    this.appService = appService;
-    this.activityService = activityService;
+    // this.logManager = logManager;
+    // this.appService = appService;
+    // this.activityService = activityService;
   }
 
   @Override

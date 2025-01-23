@@ -9,15 +9,15 @@ import heimdall.services.AppWatcherService;
 
 public class WindowsEventObserverDriver implements IEventObserverDriver {
 
-  private LoggingPort logManager;
-  private AppWatcherService appService;
-  private ActivityService activityService;
+  // private LoggingPort logManager;
+  // private AppWatcherService appService;
+  // private ActivityService activityService;
 
   public WindowsEventObserverDriver(LoggingPort logManager, AppWatcherService appService,
       ActivityService activityService) {
-    this.logManager = logManager;
-    this.appService = appService;
-    this.activityService = activityService;
+    // this.logManager = logManager;
+    // this.appService = appService;
+    // this.activityService = activityService;
   }
 
   @Override
